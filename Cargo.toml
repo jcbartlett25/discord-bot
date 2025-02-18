@@ -5,6 +5,6 @@ edition = "2021"
 
 [dependencies]
 llm = { version = "1.0.7", features = ["ollama"] }
-serenity = { version = "0.12", features = ["temp_cache"] }
+regex = "1.11.1"
+serenity = { version = "0.12", features = ["temp_cache", "framework"] }
 tokio = { version = "1.21.2", features = ["full", "macros", "rt-multi-thread"] }
-
