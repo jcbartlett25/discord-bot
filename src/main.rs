@@ -22,8 +22,6 @@ use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
 use serenity::prelude::*;
 
-use kalosm::language::*;
-
 // A container type is created for inserting into the Client's `data`, which allows for data to be
 // accessible across all events and framework commands, or anywhere else that has a copy of the
 // `data` Arc. These places are usually where either Context or Client is present.
@@ -60,7 +58,7 @@ impl TypeMapKey for ThinkRemoverRegex {
 }
 
 #[group]
-#[commands(ping, command_usage, owo_count)]
+#[commands(llm, command_usage, owo_count)]
 struct General;
 
 #[hook]
@@ -135,113 +133,87 @@ impl EventHandler for Handler {
     }
 }
 
-// #[tokio::main]
-// async fn main() {
-//     // Get Ollama server URL from environment variable or use default localhost
-//     let base_url = std::env::var("OLLAMA_URL").unwrap_or("http://127.0.0.1:11434".into());
-
-//     // Initialize and configure the LLM client
-//     let llm = LLMBuilder::new()
-//         .backend(LLMBackend::Ollama) // Use Ollama as the LLM backend
-//         .base_url(base_url) // Set the Ollama server URL
-//         .model("deepseek-r1:1.5b")
-//         .max_tokens(1000) // Set maximum response length
-//         .temperature(0.6) // Control response randomness (0.0-1.0)
-//         .stream(false) // Disable streaming responses
-//         .build()
-//         .expect("Failed to build LLM (Ollama)");
-
-//     // Create the regex (compile it once for efficiency)
-//     let re = RegexBuilder::new(r"<think>[\s\S\w]*?</think>\n*")
-//         .multi_line(true)
-//         .build()
-//         .unwrap();
-
-//     let token = env::var("DISCORD_TOKEN").expect("Expected a token in the environment");
-
-//     let framework = StandardFramework::new()
-//         .before(before)
-//         .group(&GENERAL_GROUP);
-//     framework.configure(Configuration::new().with_whitespace(true).prefix("~"));
-
-//     let intents = GatewayIntents::GUILD_MESSAGES
-//         | GatewayIntents::DIRECT_MESSAGES
-//         | GatewayIntents::MESSAGE_CONTENT;
-//     let mut client = Client::builder(&token, intents)
-//         .event_handler(Handler)
-//         .framework(framework)
-//         .await
-//         .expect("Err creating client");
-
-//     // This is where we can initially insert the data we desire into the "global" data TypeMap.
-//     // client.data is wrapped on a RwLock, and since we want to insert to it, we have to open it in
-//     // write mode, but there's a small thing catch: There can only be a single writer to a given
-//     // lock open in the entire application, this means you can't open a new write lock until the
-//     // previous write lock has closed. This is not the case with read locks, read locks can be open
-//     // indefinitely, BUT as soon as you need to open the lock in write mode, all the read locks
-//     // must be closed.
-//     //
-//     // You can find more information about deadlocks in the Rust Book, ch16-03:
-//     // https://doc.rust-lang.org/book/ch16-03-shared-state.html
-//     //
-//     // All of this means that we have to keep locks open for the least time possible, so we put
-//     // them inside a block, so they get closed automatically when dropped. If we don't do this, we
-//     // would never be able to open the data lock anywhere else.
-//     //
-//     // Alternatively, you can also use `ClientBuilder::type_map_insert` or
-//     // `ClientBuilder::type_map` to populate the global TypeMap without dealing with the RwLock.
-//     {
-//         // Open the data lock in write mode, so keys can be inserted to it.
-//         let mut data = client.data.write().await;
-
-//         // The CommandCounter Value has the type: Arc<RwLock<HashMap<String, u64>>>
-//         // So, we have to insert the same type to it.
-//         data.insert::<CommandCounter>(Arc::new(RwLock::new(HashMap::default())));
-
-//         data.insert::<MessageCount>(Arc::new(AtomicUsize::new(0)));
-
-//         data.insert::<LlmInterface>(Arc::from(llm));
-
-//         data.insert::<ThinkRemoverRegex>(Arc::from(re));
-//     }
-
-//     if let Err(why) = client.start().await {
-//         eprintln!("Client error: {why:?}");
-//     }
-// }
-
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let model = Llama::builder()
-        .with_source(LlamaSource::deepseek_r1_distill_qwen_1_5b())
-        .build()
-        .await?;
-    let mut chat = model
-        .chat()
-        .with_system_prompt("You are a pirate called Blackbeard");
+async fn main() {
+    // Get Ollama server URL from environment variable or use default localhost
+    let base_url = std::env::var("OLLAMA_URL").unwrap_or("http://127.0.0.1:11434".into());
 
-    loop {
-        chat(&prompt_input("\n> ")?).to_std_out().await?;
+    // Initialize and configure the LLM client
+    let llm = LLMBuilder::new()
+        .backend(LLMBackend::Ollama) // Use Ollama as the LLM backend
+        .base_url(base_url) // Set the Ollama server URL
+        .model("deepseek-r1:1.5b")
+        .max_tokens(500) // Set maximum response length
+        .temperature(0.6) // Control response randomness (0.0-1.0)
+        .stream(false) // Disable streaming responses
+        .build()
+        .expect("Failed to build LLM (Ollama)");
+
+    // Create the regex (compile it once for efficiency)
+    let re = RegexBuilder::new(r"<think>[\s\S\w]*?</think>\n*")
+        .multi_line(true)
+        .build()
+        .unwrap();
+
+    let token = env::var("DISCORD_TOKEN").expect("Expected a token in the environment");
+
+    let framework = StandardFramework::new()
+        .before(before)
+        .group(&GENERAL_GROUP);
+    framework.configure(Configuration::new().with_whitespace(true).prefix("~"));
+
+    let intents = GatewayIntents::GUILD_MESSAGES
+        | GatewayIntents::DIRECT_MESSAGES
+        | GatewayIntents::MESSAGE_CONTENT;
+    let mut client = Client::builder(&token, intents)
+        .event_handler(Handler)
+        .framework(framework)
+        .await
+        .expect("Err creating client");
+
+    // This is where we can initially insert the data we desire into the "global" data TypeMap.
+    // client.data is wrapped on a RwLock, and since we want to insert to it, we have to open it in
+    // write mode, but there's a small thing catch: There can only be a single writer to a given
+    // lock open in the entire application, this means you can't open a new write lock until the
+    // previous write lock has closed. This is not the case with read locks, read locks can be open
+    // indefinitely, BUT as soon as you need to open the lock in write mode, all the read locks
+    // must be closed.
+    //
+    // You can find more information about deadlocks in the Rust Book, ch16-03:
+    // https://doc.rust-lang.org/book/ch16-03-shared-state.html
+    //
+    // All of this means that we have to keep locks open for the least time possible, so we put
+    // them inside a block, so they get closed automatically when dropped. If we don't do this, we
+    // would never be able to open the data lock anywhere else.
+    //
+    // Alternatively, you can also use `ClientBuilder::type_map_insert` or
+    // `ClientBuilder::type_map` to populate the global TypeMap without dealing with the RwLock.
+    {
+        // Open the data lock in write mode, so keys can be inserted to it.
+        let mut data = client.data.write().await;
+
+        // The CommandCounter Value has the type: Arc<RwLock<HashMap<String, u64>>>
+        // So, we have to insert the same type to it.
+        data.insert::<CommandCounter>(Arc::new(RwLock::new(HashMap::default())));
+
+        data.insert::<MessageCount>(Arc::new(AtomicUsize::new(0)));
+
+        data.insert::<LlmInterface>(Arc::from(llm));
+
+        data.insert::<ThinkRemoverRegex>(Arc::from(re));
+    }
+
+    if let Err(why) = client.start().await {
+        eprintln!("Client error: {why:?}");
     }
 }
 
 #[command]
-async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
-    // Prepare conversation history with example messages
-    let messages = vec![
-        ChatMessage {
-            role: ChatRole::User,
-            content: "Repeat back the contents of the message".into(),
-        },
-        // ChatMessage {
-        //     role: ChatRole::Assistant,
-        //     content: "One way is to use Ollama with a local model!".into(),
-        // },
-        // ChatMessage {
-        //     role: ChatRole::User,
-        //     content: "Tell me more about that".into(),
-        // },
-    ];
+async fn llm(ctx: &Context, msg: &Message) -> CommandResult {
+    let messages = vec![ChatMessage {
+        role: ChatRole::User,
+        content: String::from(msg.content.strip_prefix("~llm").unwrap_or("Should work")),
+    }];
 
     let re = {
         let data_read = ctx.data.read().await;

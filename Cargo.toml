@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-kalosm = { version = "0.4.0", features = ["language", "metal"] }
 llm = { version = "1.0.7", features = ["ollama"] }
 regex = "1.11.1"
 serenity = { version = "0.12", features = ["temp_cache", "framework"] }
